@@ -1,0 +1,8 @@
+Question 3: Display movies where ratings > 3.5
+
+Solution
+
+Display movies where ratings > 3.5
+
+This implementation is same as Top 10 movies from each Genre but, with slight change in the output format
+
