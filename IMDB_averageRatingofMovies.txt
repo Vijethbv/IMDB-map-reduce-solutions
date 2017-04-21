@@ -1,0 +1,82 @@
+Question 1 : Finding average ratings of each movie as rated by different users 
+
+Solution:
+
+
+---------------------------------------------------------------------------------------------------------------------------
+Working Code - modify the path to the input file
+---------------------------------------------------------------------------------------------------------------------------
+import java.io.IOException;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.MultipleInputs;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+public class averageratingsofmovie {
+	public static class JoinMapper1 extends Mapper<Object, Text, IntWritable, Text>{
+		private IntWritable in= new IntWritable();
+		public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
+			in.set(Integer.parseInt(value.toString().split(",")[0]));
+			context.write(in, value);
+		}
+	}
+
+	public static class JoinMapper2 extends Mapper<Object, Text, IntWritable, Text>{
+		private IntWritable in= new IntWritable();
+		public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
+			String[] str= value.toString().split(",");
+			in.set(Integer.parseInt(str[1]));
+			context.write(in, new Text(str[2]));
+		}
+	}
+	public static class JoinReducer extends Reducer<IntWritable,Text ,Text,Text> {
+
+		public void reduce(IntWritable key, Iterable<Text> values,Context context) throws IOException, InterruptedException {
+			Text k = null;
+			int counter= 0;
+			float sum= 0;
+			for (Text value : values) {
+				if(value.toString().split(",").length == 3) 
+					k= new Text(value.toString());
+				else
+					try {
+					sum+= Float.parseFloat(value.toString());
+					counter++;
+					} catch (Exception e) {
+						System.out.println("---->" + value);
+					}			
+			}			
+			try {
+					context.write(new Text(""), new Text(k.toString() + "," + sum/counter));
+			} catch (Exception e) {}
+		}
+	}
+
+	public static void main(String[] args) throws Exception {
+		Configuration conf = new Configuration();
+		Job job = Job.getInstance(conf, "union");
+
+		MultipleInputs.addInputPath(job, new Path("datafiles/movierating/movies.csv"), TextInputFormat.class, JoinMapper1.class);
+		MultipleInputs.addInputPath(job, new Path("datafiles/movierating/ratings.csv"), TextInputFormat.class, JoinMapper2.class);
+
+		job.setJarByClass(averageratingsofmovie.class);
+		job.setReducerClass(JoinReducer.class);
+
+		job.setMapOutputKeyClass(IntWritable.class);
+		job.setMapOutputValueClass(Text.class);
+
+		job.setOutputKeyClass(Text.class);
+		job.setOutputValueClass(Text.class);
+
+
+		FileOutputFormat.setOutputPath(job, new Path("datafiles/movierating/output"));
+		System.exit(job.waitForCompletion(true) ? 0 : 1);
+	}
+}
