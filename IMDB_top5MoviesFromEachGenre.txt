@@ -1,0 +1,80 @@
+Question 2 : Top 5 movies from each Genre : find out first five elements from the list after applying the sorting
+
+Solution :
+
+ Top 10 movies from each Genre
+---------------------------------------------------------------------------------------------------------------------------
+Working Code - modify the path to the input file
+---------------------------------------------------------------------------------------------------------------------------
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+public class BestMovies {
+	public static class BestMapper extends Mapper<Object, Text, Text, Text>{
+		
+		public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
+			String[] str= value.toString().split(",")[2].split("\\|");
+			for(String i: str)
+				context.write(new Text(i), value);
+		}
+	}
+
+
+
+	public static class BestReducer extends Reducer<Text,Text ,Text,Text> {
+
+		public void reduce(Text key, Iterable<Text> values,Context context) throws IOException, InterruptedException {
+			ArrayList<Ratings> ratings= new ArrayList<>();
+			for(Text value: values) 
+			{
+				ratings.add(new Ratings(new Text(value.toString())));
+			}
+			Collections.sort(ratings);
+			for(int i= 1; i < 11; i++)
+				context.write(key, ratings.get(ratings.size() - i).movie);
+		}
+		
+		class Ratings implements Comparable<Ratings>
+		{
+			float ratings;
+			Text movie;
+			Ratings(Text movie) 
+			{
+				this.movie= movie;
+				ratings= Float.parseFloat(movie.toString().split(",")[3]);
+			}
+			
+			@Override
+			public int compareTo(Ratings arg0) {
+				Float f1= new Float(ratings);
+				Float f2= new Float (arg0.ratings);
+				return f1.compareTo(f2);
+			}
+		}
+	}
+
+	public static void main(String[] args) throws Exception {
+		Configuration conf = new Configuration();
+		Job job = Job.getInstance(conf, "word count");
+		job.setJarByClass(BestMovies.class);
+		job.setMapperClass(BestMapper.class);
+		//job.setCombinerClass(IntSumReducer.class);
+		job.setReducerClass(BestReducer.class);
+		job.setOutputKeyClass(Text.class);
+		job.setOutputValueClass(Text.class);
+		FileInputFormat.addInputPath(job, new Path("datafiles/bestMovies/ratings.csv"));
+		FileOutputFormat.setOutputPath(job, new Path("datafiles/bestMovies/output"));
+		System.exit(job.waitForCompletion(true) ? 0 : 1);
+	}
+}
